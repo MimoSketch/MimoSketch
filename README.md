@@ -1,4 +1,4 @@
-# MimoSketch: A Framework to Mine Item Frequency on Multiple Nodes with Sketches
+# MimoSketch: A Framework for Frequency-based Mining Tasks on Multiple Nodes with Sketches
 
 
 
