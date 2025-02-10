@@ -19,8 +19,6 @@ using namespace std;
 
 #define START_FILE_NO 1
 #define END_FILE_NO 1 //demo
-//#define END_FILE_NO 10 //CAIDA
-//#define END_FILE_NO 9 //webpage
 
 #define landa_h 16 
 #define test_cycles 10
@@ -33,8 +31,7 @@ using namespace std;
 #define epoch 10 
 #define BUCKET_NUM (HEAVY_MEM / 16)
 
-struct FIVE_TUPLE { char key[13]; }; //CAIDA
-//struct FIVE_TUPLE { char key[8]; }; //webpage
+struct FIVE_TUPLE { char key[13]; }; //demo
 typedef vector<FIVE_TUPLE> TRACE;
 TRACE traces[END_FILE_NO - START_FILE_NO + 1];
 static int HEAVY_MEM = 1000 * 1024;
@@ -642,13 +639,10 @@ void ReadInTraces(const char* trace_prefix)
 	{
 		char datafileName[100];
 		sprintf(datafileName, "demo.dat"); //demo
-		//sprintf(datafileName, "%s%d.dat", trace_prefix, datafileCnt - 1); //CAIDA
-		//sprintf(datafileName, "%swebdocs_form0%d.dat", trace_prefix, datafileCnt - 1); //webpage
 		FILE* fin = fopen(datafileName, "rb");
 		FIVE_TUPLE tmp_five_tuple;
 		traces[datafileCnt - 1].clear();
-		while (fread(&tmp_five_tuple, 1, 13, fin) == 13) { //CAIDA
-		//while (fread(&tmp_five_tuple, 1, 8, fin) == 8) { //webpage
+		while (fread(&tmp_five_tuple, 1, 13, fin) == 13) { //demo
 			traces[datafileCnt - 1].push_back(tmp_five_tuple);
 		}
 		fclose(fin);
@@ -660,11 +654,6 @@ void ReadInTraces(const char* trace_prefix)
 int main()
 {
 	ReadInTraces("./");
-	//ReadInTraces("./data/CAIDA/");
-	//ReadInTraces("./data/webpage/");
-	//ofstream out("./dhs.txt");
-	//ofstream state("./state.txt");
-	//out<<"memory: "<<HEAVY_MEM<<endl;
 	cout<<"memory: "<<HEAVY_MEM<<endl;
 	vector<double>gb_heavy_changer(10, 0);
 	vector<int>hc_cnt(10,0);
@@ -693,22 +682,18 @@ int main()
 			long long resns;
 			int packet_cnt = (int)traces[datafileCnt - 1].size();
 			int window = packet_cnt / epoch;
-			//printf("packet count:%d\n", packet_cnt);
 	
 			char** keys = new char * [(int)traces[datafileCnt - 1].size()];
 			for (int i = 0; i < (int)traces[datafileCnt - 1].size(); i++) {
-				keys[i] = new char[13]; //CAIDA
-				memcpy(keys[i], traces[datafileCnt - 1][i].key, 13); //CAIDA
-				//keys[i] = new char[8]; //webpage
-				//memcpy(keys[i], traces[datafileCnt - 1][i].key, 8); //webpage
+				keys[i] = new char[13]; //demo
+				memcpy(keys[i], traces[datafileCnt - 1][i].key, 13); //demo
 			}
 	
 			double th = 0;
 			clock_gettime(CLOCK_MONOTONIC, &time1);
 			std::fill(hg.begin(), hg.end(), hg_node()); 
 			for (int i = 0; i < packet_cnt; i++) {	
-				int hash = BKDRHash(keys[i], 13); //CAIDA
-				//int hash = BKDRHash(keys[i], 8); //webpage
+				int hash = BKDRHash(keys[i], 13); //demo
 				uint8_t fp = finger_print(hash);
 				int shash = SHash(hash) & 1;
 				int hash1 = hash % BUCKET_NUM;
@@ -722,8 +707,7 @@ int main()
 			
 			std::fill(hg.begin(), hg.end(), hg_node());
 			for (int i = 0; i < packet_cnt; i++) {
-				int hash = BKDRHash(keys[i], 13); //CAIDA
-				//int hash = BKDRHash(keys[i], 8); //webpage
+				int hash = BKDRHash(keys[i], 13); //demo
 				uint8_t fp = finger_print(hash);
 				int shash = SHash(hash) & 1;
 				int hash1 = hash % BUCKET_NUM;
@@ -731,7 +715,6 @@ int main()
 				lc_cnt[hash] += 1;
 				if (hit_cnt.count(hash) == 0) hit_cnt[hash] = Query(hash1, shash, fp);
 				Insert(hash1, shash, fp);
-				//cout<<i<<"th insertion"<<endl;
 				if(i && i % window == 0) {
 					//heavy hitter
 					if(1) {
@@ -754,12 +737,10 @@ int main()
 						double recall = (double)tp / (tp + fn);
 						double precision = (double)tp / (tp + fp);
 						double fscore = 2 * (recall * precision) / (recall + precision);
-						//cout<<recall<<" "<<precision<<endl;
-						//out<<i/window <<"th heavy hitter FSCORE: "<<fscore<<endl;
 						gb_heavy_hitter[i/window-1] += fscore;
 						hh_cnt[i/window-1] += 1;
 					}
-					//heavy changer
+					//heavy change
 					if(1) {
 						double th = window * hc;
 						int tp = 0, fp =0, tn = 0, fn = 0;
@@ -781,8 +762,6 @@ int main()
 						double recall = (double)tp / (tp + fn);
 						double precision = (double)tp / (tp + fp);
 						double fscore = 2 * (recall * precision) / (recall + precision);
-						//cout<<recall<<" "<<precision<<endl;
-						//out<<i/window <<"th heavy hitter FSCORE: "<<fscore<<endl;
 						gb_heavy_changer[i/window-1] += fscore;
 						hc_cnt[i/window-1] += 1;
 					}		
@@ -808,18 +787,8 @@ int main()
 				ans[make_pair(topk[i].second,efq)]++;
 			}
 			AAE /= gb_cnt.size();
-			//out<<"AAE: "<<AAE<<endl;
 			cout<<"AAE: "<<AAE<<endl;
 			gb_AAE += AAE;
-			/*double tmpARE = 0;
-			int truecount = 0;
-			for(auto it:ans) {
-				if(it.first.first==it.first.second) truecount+=it.second;
-				tmpARE += it.second*(double)abs(it.first.second-it.first.first)/it.first.first;
-				cout<<"true: "<<it.first.first<<" estm: "<<it.first.second<<" count: "<<it.second<<" ARE: "<<(double)abs(it.first.second-it.first.first)/it.first.first<<endl;
-			}
-			cout<<"true count: "<<truecount<<endl;
-			cout<<"ARE: "<<tmpARE<<endl;*/
 			//ARE			
 			double ARE = 0;
 			for(int i = 0; i < topk.size(); i++) {
@@ -831,7 +800,6 @@ int main()
 				ARE += (double)abs(topk[i].second - efq) / topk[i].second;
 			}
 			ARE /= gb_cnt.size();
-			//out<<"ARE: "<<ARE<<endl;
 			cout<<"ARE: "<<ARE<<endl;
 			gb_ARE += ARE;
 			//Topk ARE
@@ -842,11 +810,9 @@ int main()
 				int shash = SHash(hash) & 1;
 				int hash1 = hash % BUCKET_NUM;
 				int efq = Query(hash1, shash, fp);
-				//printf("real freq:%d, estimated freq:%d\n", topk[i].second, efq);
 				kARE += (double)abs(topk[i].second - efq) / topk[i].second;
 			}
 			kARE /= k;
-			//out<<"Topk ARE: "<<kARE<<endl;
 			cout<<"Topk ARE: "<<kARE<<endl;
 			gb_kARE += kARE;
 			//WMRE
@@ -867,20 +833,16 @@ int main()
 				wmre += (double)abs(freq[i] - freq_e[i]);
 				wmd += ((double)freq[i] + freq_e[i]) / 2;
 			}
-			//out<<"WMRE: "<<wmre/wmd<<endl;
 			cout<<"WMRE: "<<wmre/wmd<<endl;
 			gb_WMRE += wmre/wmd;
 			//entropy
 			int flow_num = gb_cnt.size();
-			cout<<"flow_num: "<<flow_num<<endl;
 			double e = 0, ee = 0;
 			for (int i = 1; i <= max_freq; i++) {
 				e += freq[i]?-1*((double)i*freq[i]/flow_num)*log2((double)freq[i]/flow_num):0;
 				ee += freq_e[i]?-1*((double)i*freq_e[i]/flow_num)*log2((double)freq_e[i]/flow_num):0;
 			}
-			//out<<"entropy ARE: "<<fabs(e-ee)/e<<endl;
 			cout<<"entropy ARE: "<<fabs(e-ee)/e<<endl;
-			//out<<"real entropy: "<<e<<endl; 
 			gb_entropy += fabs(e - ee) / e;
 			//FSCORE
 			unordered_map<int, bool>ef;
@@ -903,8 +865,6 @@ int main()
 			double recall = (double)tp / (tp + fn);
 			double precision = (double)tp / (tp + fp);
 			double fscore = 2 * (recall * precision) / (recall + precision);
-			//cout<<recall<<" "<<precision<<endl;
-			//out<<"Total FSCORE: "<<fscore<<endl;
 			cout<<"Total FSCORE: "<<fscore<<endl;
 			gb_fscore += fscore;
 			
@@ -919,7 +879,7 @@ int main()
 	for(int i = 0; i < 10; i++) {
 		if (hh_cnt[i] > 0) cout<<gb_heavy_hitter[i] / hh_cnt[i]<<endl;
 	}
-	cout<<"heavy changer FSCORE: "<<endl;
+	cout<<"heavy change FSCORE: "<<endl;
 	for(int i = 0; i < 10; i++) {
 		if (hc_cnt[i] > 0) cout<<gb_heavy_changer[i] / hc_cnt[i]<<endl;
 	}

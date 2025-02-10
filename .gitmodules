@@ -3,7 +3,10 @@
 	url = https://github.com/WavingSketch/Waving-Sketch.git
 [submodule "DHS"]
 	path = DHS
-	url = https://github.com/ZeBraHack0/DHS
+	url = https://github.com/ZeBraHack0/DHS.git
 [submodule "CuckooCounter"]
 	path = CuckooCounter
-	url = https://github.com/wenjunpaper/CuckooCounter
+	url = https://github.com/wenjunpaper/CuckooCounter.git
+[submodule "BitMatcher"]
+	path = BitMatcher
+	url = https://github.com/wenjunpaper/BitMatcher.git

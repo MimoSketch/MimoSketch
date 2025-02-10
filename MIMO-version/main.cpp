@@ -14,10 +14,8 @@
 #include "gurobi_c++.h"
 
 #include "mimosketch.h"
-#include "wavingsketch.h"
 #include "countsketch.h"
-#include "dhs.h"
-//#include "cuckoocounter.h"
+#include "cmsketch.h"
 #include "func.h"
 
 using namespace std;
@@ -28,18 +26,12 @@ using namespace std;
 
 #define START_FILE_NO 1
 #define END_FILE_NO 1 //demo
-//#define END_FILE_NO 10 //CAIDA
-//#define END_FILE_NO 9 //webpage
 
 #define MIMO 0
-//#define WS 1
-//#define CS 2
-//#define DHS 3
-//#define CC 4
+//#define CS 1
+//#define CM 2
 
 struct FIVE_TUPLE { char key[13]; }; //demo
-//struct FIVE_TUPLE { char key[13]; }; //CAIDA
-//struct FIVE_TUPLE { char key[8]; }; //webpage
 
 typedef vector<FIVE_TUPLE> TRACE;
 TRACE traces[END_FILE_NO - START_FILE_NO + 1];
@@ -47,14 +39,10 @@ static int HEAVY_MEM = 200 * 1024;
 
 #if defined (MIMO)
 	vector<vector<hg_node_mimo>>hg(range);
-#elif defined (WS)
-	vector<vector<hg_node_ws>>hg(range);
 #elif defined (CS)
 	vector<vector<hg_node_cs>>hg(range);
-#elif defined (DHS)
-	vector<vector<hg_node_dhs>>hg(range);
-#elif defined (CC)
-	#include "cuckoocounter.h"
+#elif defined (CM)
+	vector<vector<hg_node_cm>>hg(range);
 #else
 #endif
 
@@ -64,16 +52,12 @@ void ReadInTraces(const char* trace_prefix)
 	{
 		char datafileName[100];
 		sprintf(datafileName, "demo.dat"); //demo
-		//sprintf(datafileName, "%s%d.dat", trace_prefix, datafileCnt - 1); //CAIDA
-		//sprintf(datafileName, "%swebdocs_form0%d.dat", trace_prefix, datafileCnt - 1); //webpage
 		FILE* fin = fopen(datafileName, "rb");
 		FIVE_TUPLE tmp_five_tuple;
 		traces[datafileCnt - 1].clear();
 
 		int cnt = 0;
 		while (fread(&tmp_five_tuple, 1, 13, fin) == 13 && cnt <= 1800000) { //demo
-		//while (fread(&tmp_five_tuple, 1, 13, fin) == 13 && cnt <= 1800000) { //CAIDA
-		//while (fread(&tmp_five_tuple, 1, 8, fin) == 8) { //webpage
 			traces[datafileCnt - 1].push_back(tmp_five_tuple);
 			cnt++;
 		}
@@ -89,28 +73,19 @@ double MeanQuery(const char* key, std::vector<int>opt)
 	for (int l = 0; l < 5; l++) {
 		int j = opt[l];
 		#if defined (MIMO)
-			query[l] = hg[j][MurmurHash(key, 13, j)%BUCKET_NUM_MIMO].Query(MurmurHash(key, 13, 101+j)&1, MurmurHash(key, 13, 11+j)&255); //CAIDA
-			//query[l] = hg[j][MurmurHash(key, 8, j)%BUCKET_NUM_MIMO].Query(MurmurHash(key, 8, 101+j)&1, MurmurHash(key, 8, 11+j)&255); //webpage
-		#elif defined (WS)
-			query[l] = hg[j][MurmurHash(key, 13, j)%BUCKET_NUM_WS].Query(MurmurHash(key, 13, 101+j)&1, MurmurHash(key, 13, 11+j)&255); //CAIDA
-			//query[l] = hg[j][MurmurHash(key, 8, j)%BUCKET_NUM_WS].Query(MurmurHash(key, 8, 101+j)&1, MurmurHash(key, 8, 11+j)&255); //webpage
+			query[l] = hg[j][MurmurHash(key, 13, j)%BUCKET_NUM_MIMO].Query(MurmurHash(key, 13, 101+j)&1, MurmurHash(key, 13, 11+j)&255); //demo
 		#elif defined (CS)
 			int tmp[HASH_NUM];
 			for (int i = 0; i < HASH_NUM; i++)
-				tmp[i] = hg[j][MurmurHash(key, 13, j+i)%BUCKET_NUM_CS].Query(MurmurHash(key, 13, 101+j)&1); //CAIDA
-				//tmp[i] = hg[j][MurmurHash(key, 8, j+i)%BUCKET_NUM_CS].Query(MurmurHash(key, 8, 101+j)&1); //webpage
+				tmp[i] = hg[j][MurmurHash(key, 13, j+i)%BUCKET_NUM_CS].Query(MurmurHash(key, 13, 101+j)&1); //demo
 			sort(tmp, tmp + HASH_NUM);
 			query[l] = tmp[HASH_NUM/2];
-		#elif defined (DHS)
-			query[l] = hg[j][MurmurHash(key, 13, j)%BUCKET_NUM_DHS].Query(MurmurHash(key, 13, 11+j)&255); //CAIDA
-			//query[l] = hg[j][MurmurHash(key, 8, j)%BUCKET_NUM_DHS].Query(MurmurHash(key, 8, 11+j)&255); //webpage
-		#elif defined (CC)
-			uint8_t fp = MurmurHash(keys[i], 13, 11+j)&255; //CAIDA
-			int hash1 = MurmurHash(keys[i], 13, j)%BUCKET_NUM_CC; //CAIDA
-			//uint8_t fp = MurmurHash(keys[i], 8, 11+j)&255; //webpage
-			//int hash1 = MurmurHash(keys[i], 8, j)%BUCKET_NUM_CC; //webpage
-			int hash2 = (hash1 ^ fp)%BUCKET_NUM_CC;
-			query[l] = Query(hash1, hash2, fp, j);
+		#elif defined (CM)
+			int tmp[HASH_NUM];
+			for (int i = 0; i < HASH_NUM; i++)
+				tmp[i] = hg[j][MurmurHash(key, 13, j+i)%BUCKET_NUM_CM].Query(); //demo
+			sort(tmp, tmp + HASH_NUM);
+			query[l] = tmp[0];
 		#endif
 		if (opt.size() == 1) break;
 		if (opt.size() == 3 && l == 2) break;
@@ -126,14 +101,10 @@ int main()
 	for (int i = 0; i < range; i++) {
 		#if defined (MIMO)
 			hg[i].resize(BUCKET_NUM_MIMO);
-		#elif defined (WS)
-			hg[i].resize(BUCKET_NUM_WS);
 		#elif defined (CS)
 			hg[i].resize(BUCKET_NUM_CS);
-		#elif defined (DHS)
-			hg[i].resize(BUCKET_NUM_DHS);
-		#elif defined (CC)
-			hg[i].resize(BUCKET_NUM_CC);
+		#elif defined (CM)
+			hg[i].resize(BUCKET_NUM_CM);
 		#else
 			std::cerr<<"Please select an algorithm!"<<std::endl;
 			exit(-1);
@@ -141,8 +112,6 @@ int main()
 	}
 
 	ReadInTraces("./"); //demo
-	//ReadInTraces("./data/CAIDA/"); //CAIDA
-	//ReadInTraces("./data/webpage/"); //webpage
 	
 	cout<<"memory: "<<HEAVY_MEM<<endl;
 	double gb_AAE1 = 0;
@@ -166,16 +135,10 @@ int main()
 			for (int i = 0; i < (int)traces[datafileCnt - 1].size(); i++) {
 				keys[i] = new char[13]; //demo
 				memcpy(keys[i], traces[datafileCnt - 1][i].key, 13); //demo
-				//keys[i] = new char[13]; //CAIDA
-				//memcpy(keys[i], traces[datafileCnt - 1][i].key, 13); //CAIDA
-				//keys[i] = new char[8]; //webpage
-				//memcpy(keys[i], traces[datafileCnt - 1][i].key, 8); //webpage
 			}
 
 			for (int i = 0; i < packet_cnt; i++) {
 				string str(keys[i], 13); //demo
-				//string str(keys[i], 13); //CAIDA
-				//string str(keys[i], 8); //webpage
 				gb_cnt[str] += 1;
 			}
 			
@@ -246,40 +209,23 @@ int main()
 			for (int i = 0; i < range; i++) {
 				#if defined (MIMO)
 					std::fill(hg[i].begin(), hg[i].end(), hg_node_mimo());
-				#elif defined (WS)
-					std::fill(hg[i].begin(), hg[i].end(), hg_node_ws());
 				#elif defined (CS)
 					std::fill(hg[i].begin(), hg[i].end(), hg_node_cs());
-				#elif defined (DHS)
-					std::fill(hg[i].begin(), hg[i].end(), hg_node_dhs());
-				#elif defined (CC)
-					std::fill(hg[i].begin(), hg[i].end(), hg_node_cc());
+				#elif defined (CM)
+					std::fill(hg[i].begin(), hg[i].end(), hg_node_cm());
 				#endif
 			}
 			for (int i = 0; i < packet_cnt; i++) {
-				string str(keys[i], 13); //CAIDA
-				//string str(keys[i], 8); //webpage
+				string str(keys[i], 13); //demo
 				int j = rnd1[str][0];
 				#if defined (MIMO)
-                    hg[j][MurmurHash(keys[i], 13, j)%BUCKET_NUM_MIMO].Insert(MurmurHash(keys[i], 13, 101+j)&1, MurmurHash(keys[i], 13, 11+j)&255); //CAIDA
-                	//hg[j][MurmurHash(keys[i], 8, j)%BUCKET_NUM_MIMO].Insert(MurmurHash(keys[i], 8, 101+j)&1, MurmurHash(keys[i], 8, 11+j)&255); //webpage
-				#elif defined (WS)
-                    hg[j][MurmurHash(keys[i], 13, j)%BUCKET_NUM_WS].Insert(MurmurHash(keys[i], 13, 101+j)&1, MurmurHash(keys[i], 13, 11+j)&255); //CAIDA
-					//hg[j][MurmurHash(keys[i], 8, j)%BUCKET_NUM_WS].Insert(MurmurHash(keys[i], 8, 101+j)&1, MurmurHash(keys[i], 8, 11+j)&255); //webpage
+                    hg[j][MurmurHash(keys[i], 13, j)%BUCKET_NUM_MIMO].Insert(MurmurHash(keys[i], 13, 101+j)&1, MurmurHash(keys[i], 13, 11+j)&255); //demo
 				#elif defined (CS)
 					for (int l = 0; l < HASH_NUM; l++)
-						hg[j][MurmurHash(keys[i], 13, j+l)%BUCKET_NUM_CS].Insert(MurmurHash(keys[i], 13, 101+j)&1); //CAIDA
-						//hg[j][MurmurHash(keys[i], 8, j+l)%BUCKET_NUM_CS].Insert(MurmurHash(keys[i], 8, 101+j)&1); //webpage
-				#elif defined (DHS)
-					hg[j][MurmurHash(keys[i], 13, j)%BUCKET_NUM_DHS].Insert(MurmurHash(keys[i], 13, 11+j)&255); //CAIDA
-					//hg[j][MurmurHash(keys[i], 8, j)%BUCKET_NUM_DHS].Insert(MurmurHash(keys[i], 8, 11+j)&255); //webpage
-				#elif defined (CC)
-					uint8_t fp = MurmurHash(keys[i], 13, 11+j)&255; //CAIDA
-					int hash1 = MurmurHash(keys[i], 13, j)%BUCKET_NUM_CC; //CAIDA
-					//uint8_t fp = MurmurHash(keys[i], 8, 11+j)&255; //webpage
-					//int hash1 = MurmurHash(keys[i], 8, j)%BUCKET_NUM_CC; //webpage
-					int hash2 = (hash1 ^ fp)%BUCKET_NUM_CC;
-					Insert(hash1, hash2, fp, j);
+						hg[j][MurmurHash(keys[i], 13, j+l)%BUCKET_NUM_CS].Insert(MurmurHash(keys[i], 13, 101+j)&1); //demo
+				#elif defined (CM)
+					for (int l = 0; l < HASH_NUM; l++)
+						hg[j][MurmurHash(keys[i], 13, j+l)%BUCKET_NUM_CM].Insert(); //demo
 				#endif
 			}
 
@@ -290,10 +236,8 @@ int main()
 				const char* key = str.c_str();
 				int efq = MeanQuery(key, rnd1[str]);
 				AAE1 += (double)abs(topk[i].second - efq);
-				//cout<<efq<<" "<<topk[i].second<<endl;
 			}
 			AAE1 /= topk.size();
-			//cout<<"AAE1: "<<AAE1<<endl;
 			gb_AAE1 += AAE1;
 			//ARE1			
 			double ARE1 = 0;
@@ -304,7 +248,6 @@ int main()
 				ARE1 += (double)abs(topk[i].second - efq) / topk[i].second;
 			}
 			ARE1 /= topk.size();
-			//cout<<"ARE1: "<<ARE1<<endl;
 			gb_ARE1 += ARE1;
 
 			//------------baseline 2: select all the candidate nodes------------
@@ -316,41 +259,24 @@ int main()
 			for (int i = 0; i < range; i++) {
 				#if defined (MIMO)
 					std::fill(hg[i].begin(), hg[i].end(), hg_node_mimo());
-				#elif defined (WS)
-					std::fill(hg[i].begin(), hg[i].end(), hg_node_ws());
 				#elif defined (CS)
 					std::fill(hg[i].begin(), hg[i].end(), hg_node_cs());
-				#elif defined (DHS)
-					std::fill(hg[i].begin(), hg[i].end(), hg_node_dhs());
-				#elif defined (CC)
-					std::fill(hg[i].begin(), hg[i].end(), hg_node_cc());
+				#elif defined (CM)
+					std::fill(hg[i].begin(), hg[i].end(), hg_node_cm());
 				#endif
 			}
 			for (int i = 0; i < packet_cnt; i++) {
-				string str(keys[i], 13); //CAIDA
-				//string str(keys[i], 8); //webpage
+				string str(keys[i], 13); //demo
 				for (int l = 0; l < rnd5[str].size(); l++) {
 					int j = rnd5[str][l];
 					#if defined (MIMO)
-						hg[j][MurmurHash(keys[i], 13, j)%BUCKET_NUM_MIMO].Insert(MurmurHash(keys[i], 13, 101+j)&1, MurmurHash(keys[i], 13, 11+j)&255); //CAIDA
-						//hg[j][MurmurHash(keys[i], 8, j)%BUCKET_NUM_MIMO].Insert(MurmurHash(keys[i], 8, 101+j)&1, MurmurHash(keys[i], 8, 11+j)&255); //webpage
-					#elif defined (WS)
-						hg[j][MurmurHash(keys[i], 13, j)%BUCKET_NUM_WS].Insert(MurmurHash(keys[i], 13, 101+j)&1, MurmurHash(keys[i], 13, 11+j)&255); //CAIDA
-						//hg[j][MurmurHash(keys[i], 8, j)%BUCKET_NUM_WS].Insert(MurmurHash(keys[i], 8, 101+j)&1, MurmurHash(keys[i], 8, 11+j)&255); //webpage
+						hg[j][MurmurHash(keys[i], 13, j)%BUCKET_NUM_MIMO].Insert(MurmurHash(keys[i], 13, 101+j)&1, MurmurHash(keys[i], 13, 11+j)&255); //demo
 					#elif defined (CS)
 						for (int l = 0; l < HASH_NUM; l++)
-							hg[j][MurmurHash(keys[i], 13, j+l)%BUCKET_NUM_CS].Insert(MurmurHash(keys[i], 13, 101+j)&1); //CAIDA
-							//hg[j][MurmurHash(keys[i], 8, j+l)%BUCKET_NUM_CS].Insert(MurmurHash(keys[i], 8, 101+j)&1); //webpage
-					#elif defined (DHS)
-						hg[j][MurmurHash(keys[i], 13, j)%BUCKET_NUM_DHS].Insert(MurmurHash(keys[i], 13, 11+j)&255); //CAIDA
-						//hg[j][MurmurHash(keys[i], 8, j)%BUCKET_NUM_DHS].Insert(MurmurHash(keys[i], 8, 11+j)&255); //webpage
-					#elif defined (CC)
-						uint8_t fp = MurmurHash(keys[i], 13, 11+j)&255; //CAIDA
-						int hash1 = MurmurHash(keys[i], 13, j)%BUCKET_NUM_CC; //CAIDA
-						//uint8_t fp = MurmurHash(keys[i], 8, 11+j)&255; //webpage
-						//int hash1 = MurmurHash(keys[i], 8, j)%BUCKET_NUM_CC; //webpage
-						int hash2 = (hash1 ^ fp)%BUCKET_NUM_CC;
-						Insert(hash1, hash2, fp, j);
+							hg[j][MurmurHash(keys[i], 13, j+l)%BUCKET_NUM_CS].Insert(MurmurHash(keys[i], 13, 101+j)&1); //demo
+					#elif defined (CM)
+						for (int l = 0; l < HASH_NUM; l++)
+							hg[j][MurmurHash(keys[i], 13, j+l)%BUCKET_NUM_CM].Insert(); //demo
 					#endif
 				}
 			}
@@ -362,10 +288,8 @@ int main()
 				const char* key = str.c_str();
 				int efq = MeanQuery(key, rnd5[str]);
 				AAE5 += (double)abs(topk[i].second - efq);
-				//cout<<efq<<" "<<topk[i].second<<endl;
 			}
 			AAE5 /= topk.size();
-			//cout<<"AAE5: "<<AAE5<<endl;
 			gb_AAE5 += AAE5;
 			//ARE5			
 			double ARE5 = 0;
@@ -376,7 +300,6 @@ int main()
 				ARE5 += (double)abs(topk[i].second - efq) / topk[i].second;
 			}
 			ARE5 /= topk.size();
-			//cout<<"ARE5: "<<ARE5<<endl;
 			gb_ARE5 += ARE5;
 
 			//------------baseline 3: randomly select 3 nodes------------
@@ -394,41 +317,24 @@ int main()
 			for (int i = 0; i < range; i++) {
 				#if defined (MIMO)
 					std::fill(hg[i].begin(), hg[i].end(), hg_node_mimo());
-				#elif defined (WS)
-					std::fill(hg[i].begin(), hg[i].end(), hg_node_ws());
 				#elif defined (CS)
 					std::fill(hg[i].begin(), hg[i].end(), hg_node_cs());
-				#elif defined (DHS)
-					std::fill(hg[i].begin(), hg[i].end(), hg_node_dhs());
-				#elif defined (CC)
-					std::fill(hg[i].begin(), hg[i].end(), hg_node_cc());
+				#elif defined (CM)
+					std::fill(hg[i].begin(), hg[i].end(), hg_node_cm());
 				#endif
 			}
 			for (int i = 0; i < packet_cnt; i++) {
-				string str(keys[i], 13); //CAIDA
-				//string str(keys[i], 8); //webpage
+				string str(keys[i], 13); //demo
 				for (int l = 0; l < 3; l++) {
 					int j = rnd[str][l];
 					#if defined (MIMO)
-						hg[j][MurmurHash(keys[i], 13, j)%BUCKET_NUM_MIMO].Insert(MurmurHash(keys[i], 13, 101+j)&1, MurmurHash(keys[i], 13, 11+j)&255); //CAIDA
-						//hg[j][MurmurHash(keys[i], 8, j)%BUCKET_NUM_MIMO].Insert(MurmurHash(keys[i], 8, 101+j)&1, MurmurHash(keys[i], 8, 11+j)&255); //webpage
-					#elif defined (WS)
-						hg[j][MurmurHash(keys[i], 13, j)%BUCKET_NUM_WS].Insert(MurmurHash(keys[i], 13, 101+j)&1, MurmurHash(keys[i], 13, 11+j)&255); //CAIDA
-						//hg[j][MurmurHash(keys[i], 8, j)%BUCKET_NUM_WS].Insert(MurmurHash(keys[i], 8, 101+j)&1, MurmurHash(keys[i], 8, 11+j)&255); //webpage
+						hg[j][MurmurHash(keys[i], 13, j)%BUCKET_NUM_MIMO].Insert(MurmurHash(keys[i], 13, 101+j)&1, MurmurHash(keys[i], 13, 11+j)&255); //demo
 					#elif defined (CS)
 						for (int l = 0; l < HASH_NUM; l++)
-							hg[j][MurmurHash(keys[i], 13, j+l)%BUCKET_NUM_CS].Insert(MurmurHash(keys[i], 13, 101+j)&1); //CAIDA
-							//hg[j][MurmurHash(keys[i], 8, j+l)%BUCKET_NUM_CS].Insert(MurmurHash(keys[i], 8, 101+j)&1); //webpage
-					#elif defined (DHS)
-						hg[j][MurmurHash(keys[i], 13, j)%BUCKET_NUM_DHS].Insert(MurmurHash(keys[i], 13, 11+j)&255); //CAIDA
-						//hg[j][MurmurHash(keys[i], 8, j)%BUCKET_NUM_DHS].Insert(MurmurHash(keys[i], 8, 11+j)&255); //webpage
-					#elif defined (CC)
-						uint8_t fp = MurmurHash(keys[i], 13, 11+j)&255; //CAIDA
-						int hash1 = MurmurHash(keys[i], 13, j)%BUCKET_NUM_CC; //CAIDA
-						//uint8_t fp = MurmurHash(keys[i], 8, 11+j)&255; //webpage
-						//int hash1 = MurmurHash(keys[i], 8, j)%BUCKET_NUM_CC; //webpage
-						int hash2 = (hash1 ^ fp)%BUCKET_NUM_CC;
-						Insert(hash1, hash2, fp, j);
+							hg[j][MurmurHash(keys[i], 13, j+l)%BUCKET_NUM_CS].Insert(MurmurHash(keys[i], 13, 101+j)&1); //demo
+					#elif defined (CM)
+						for (int l = 0; l < HASH_NUM; l++)
+							hg[j][MurmurHash(keys[i], 13, j+l)%BUCKET_NUM_CM].Insert(); //demo
 					#endif
 					if (rnd[str].size() == 1) break;
 				}
@@ -442,7 +348,6 @@ int main()
 				AAE += (double)abs(topk[i].second - efq);
 			}
 			AAE /= topk.size();
-			//cout<<"AAE: "<<AAE<<endl;
 			gb_AAE += AAE;
 			//ARE			
 			double ARE = 0;
@@ -453,7 +358,6 @@ int main()
 				ARE += (double)abs(topk[i].second - efq) / topk[i].second;
 			}
 			ARE /= topk.size();
-			//cout<<"ARE: "<<ARE<<endl;
 			gb_ARE += ARE;
 
 			//------------solution: MIP-optimally select 3 nodes------------
@@ -484,9 +388,6 @@ int main()
 						if (std::find(route[i].begin(), route[i].end(), j) == route[i].end())
 							model.addConstr(x[i*range+j] == 0);
 				}
-				//model.set(GRB_DoubleParam_MIPGap, 1e-2);
-				//model.set(GRB_DoubleParam_TimeLimit, 9000);
-				//model.set(GRB_IntParam_NonConvex, 2);
 				model.optimize();
 				for (int i = 0; i < topk.size(); i++) {
 					opt[topk[i].first].resize(3);
@@ -510,41 +411,24 @@ int main()
 			for (int i = 0; i < range; i++) {
 				#if defined (MIMO)
 					std::fill(hg[i].begin(), hg[i].end(), hg_node_mimo());
-				#elif defined (WS)
-					std::fill(hg[i].begin(), hg[i].end(), hg_node_ws());
 				#elif defined (CS)
 					std::fill(hg[i].begin(), hg[i].end(), hg_node_cs());
-				#elif defined (DHS)
-					std::fill(hg[i].begin(), hg[i].end(), hg_node_dhs());
-				#elif defined (CC)
-					std::fill(hg[i].begin(), hg[i].end(), hg_node_cc());
+				#elif defined (CM)
+					std::fill(hg[i].begin(), hg[i].end(), hg_node_cm());
 				#endif
 			}
 			for (int i = 0; i < packet_cnt; i++) {
-				string str(keys[i], 13); //CAIDA
-				//string str(keys[i], 8); //webpage
+				string str(keys[i], 13); //demo
 				for (int l = 0; l < 3; l++) {
 					int j = opt[str][l];
 					#if defined (MIMO)
-						hg[j][MurmurHash(keys[i], 13, j)%BUCKET_NUM_MIMO].Insert(MurmurHash(keys[i], 13, 101+j)&1, MurmurHash(keys[i], 13, 11+j)&255); //CAIDA
-						//hg[j][MurmurHash(keys[i], 8, j)%BUCKET_NUM_MIMO].Insert(MurmurHash(keys[i], 8, 101+j)&1, MurmurHash(keys[i], 8, 11+j)&255); //webpage
-					#elif defined (WS)
-						hg[j][MurmurHash(keys[i], 13, j)%BUCKET_NUM_WS].Insert(MurmurHash(keys[i], 13, 101+j)&1, MurmurHash(keys[i], 13, 11+j)&255); //CAIDA
-						//hg[j][MurmurHash(keys[i], 8, j)%BUCKET_NUM_WS].Insert(MurmurHash(keys[i], 8, 101+j)&1, MurmurHash(keys[i], 8, 11+j)&255); //webpage
+						hg[j][MurmurHash(keys[i], 13, j)%BUCKET_NUM_MIMO].Insert(MurmurHash(keys[i], 13, 101+j)&1, MurmurHash(keys[i], 13, 11+j)&255); //demo
 					#elif defined (CS)
 						for (int l = 0; l < HASH_NUM; l++)
-							hg[j][MurmurHash(keys[i], 13, j+l)%BUCKET_NUM_CS].Insert(MurmurHash(keys[i], 13, 101+j)&1); //CAIDA
-							//hg[j][MurmurHash(keys[i], 8, j+l)%BUCKET_NUM_CS].Insert(MurmurHash(keys[i], 8, 101+j)&1); //webpage
-					#elif defined (DHS)
-						hg[j][MurmurHash(keys[i], 13, j)%BUCKET_NUM_DHS].Insert(MurmurHash(keys[i], 13, 11+j)&255); //CAIDA
-						//hg[j][MurmurHash(keys[i], 8, j)%BUCKET_NUM_DHS].Insert(MurmurHash(keys[i], 8, 11+j)&255); //webpage
-					#elif defined (CC)
-						uint8_t fp = MurmurHash(keys[i], 13, 11+j)&255; //CAIDA
-						int hash1 = MurmurHash(keys[i], 13, j)%BUCKET_NUM_CC; //CAIDA
-						//uint8_t fp = MurmurHash(keys[i], 8, 11+j)&255; //webpage
-						//int hash1 = MurmurHash(keys[i], 8, j)%BUCKET_NUM_CC; //webpage
-						int hash2 = (hash1 ^ fp)%BUCKET_NUM_CC;
-						Insert(hash1, hash2, fp, j);
+							hg[j][MurmurHash(keys[i], 13, j+l)%BUCKET_NUM_CS].Insert(MurmurHash(keys[i], 13, 101+j)&1); //demo
+					#elif defined (CM)
+						for (int l = 0; l < HASH_NUM; l++)
+							hg[j][MurmurHash(keys[i], 13, j+l)%BUCKET_NUM_CM].Insert(); //demo
 					#endif
 					if (opt[str].size() == 1) break;
 				}
@@ -556,10 +440,8 @@ int main()
 				const char* key = str.c_str();
 				int efq = MeanQuery(key, opt[str]);
 				oAAE += (double)abs(topk[i].second - efq);
-				//cout<<efq<<" "<<topk[i].second<<endl;
 			}
 			oAAE /= topk.size();
-			//cout<<"oAAE: "<<oAAE<<endl;
 			gb_oAAE += oAAE;
 			//ARE			
 			double oARE = 0;
@@ -570,7 +452,6 @@ int main()
 				oARE += (double)abs(topk[i].second - efq) / topk[i].second;
 			}
 			oARE /= topk.size();
-			//cout<<"oARE: "<<oARE<<endl;
 			gb_oARE += oARE;
 		
 			/* free memory */
